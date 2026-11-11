@@ -371,7 +371,7 @@ details.sum[open]>summary::before{transform:rotate(90deg)}
    비워 두면 기록은 각 컴퓨터(브라우저)에만 저장되고, 교사 화면에서도 그 컴퓨터의 기록만 보입니다.
    교사 비밀번호 기본값: 0405 (교사 화면 → 비밀번호 변경)
    ===================================================================== */
-const SHEET_URL = '';
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbx1tKh8vkQc7P73nEetHuGMAoDO2mnXA6oPS_nFkBEJzT6Se38tFDAwvwoPJuMY9EvSrA/exec';
 /* ===== 공통 ===== */
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -1338,31 +1338,33 @@ const TOOLS_LC=[
 ];
 /* 장치 이름 붙이기 (HPLC 구조도) */
 const LCPARTS=[['bottle','용매 저장 용기'],['degas','탈기 장치'],['pump','펌프'],['inj','시료 주입기'],['col','컬럼 (고정상)'],['det','검출기'],['pc','데이터 처리부']];
-function lcSchematic(withNums){
+function lcSchematic(withNums,names){
   const B=[[14,30],[134,30],[254,30],[374,30],[374,150],[254,150],[134,150]];
-  let s=`<svg viewBox="0 0 480 240" role="img" aria-label="HPLC 구조도">`;
+  let s=`<svg viewBox="0 0 480 252" role="img" aria-label="HPLC 구조도">`;
   for(let i=0;i<B.length-1;i++){const [x1,y1]=B[i],[x2,y2]=B[i+1];
     if(y1===y2){const a=x2>x1;s+=`<path d="M${a?x1+92:x1} ${y1+35} H${a?x2:x2+92}" stroke="var(--glass)" stroke-width="3" marker-end="url(#ah)"/>`}
     else s+=`<path d="M${x1+46} ${y1+70} V${y2}" stroke="var(--glass)" stroke-width="3" marker-end="url(#ah)"/>`}
   s+=`<defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8z" fill="var(--glass)"/></marker></defs>`;
   B.forEach(([x,y],i)=>{s+=`<rect x="${x}" y="${y}" width="92" height="70" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/><g transform="translate(${x+21},${y+2}) scale(.72)" style="color:var(--ink)">${ICON[LCPARTS[i][0]]}</g>`;
+    if(names)s+=`<text x="${x+46}" y="${y+90}" font-size="14" text-anchor="middle" fill="var(--accent)" font-weight="700" stroke="var(--surface2)" stroke-width="5" paint-order="stroke">${LCPARTS[i][1]}</text>`;
     if(withNums)s+=`<circle cx="${x+10}" cy="${y+10}" r="11" fill="var(--accent)"/><text x="${x+10}" y="${y+14.5}" font-size="13" text-anchor="middle" fill="#fff" font-family="IBM Plex Mono" font-weight="700">${i+1}</text>`});
   s+=`<path d="M134 185 H60" stroke="var(--muted)" stroke-width="2" stroke-dasharray="5 4"/><text x="58" y="180" font-size="11" text-anchor="end" fill="var(--muted)">폐액</text>`;
   return s+'</svg>';
 }
 let LBL=null;
 function paneLabelLc(el){
-  if(!LBL||LBL.doneFlag)LBL={slots:Array(LCPARTS.length).fill(null),pick:null,tries:0,doneFlag:false};
+  if(!LBL)LBL=missionDone().has('장치 이름')?{slots:LCPARTS.map((l,i)=>i),pick:null,tries:0,doneFlag:true}:{slots:Array(LCPARTS.length).fill(null),pick:null,tries:0,doneFlag:false};
   const chips=shuffle(LCPARTS.map((l,i)=>i));
-  el.innerHTML=`<div class="bench wide"><div class="scene" style="align-items:center">${lcSchematic(true).replace('<svg ','<svg style="max-width:520px" ')}</div>
+  el.innerHTML=`<div class="bench wide"><div class="scene" style="align-items:center">${lcSchematic(true,LBL.doneFlag).replace('<svg ','<svg style="max-width:520px" ')}</div>
    <div><p class="small muted">이름 카드를 누른 뒤 번호 칸을 누르세요. 화살표가 이동상이 흐르는 방향이에요.</p>
    <div class="row" style="gap:8px;margin-top:10px">${chips.map(i=>`<button class="chip ${LBL.slots.includes(i)?'used':''}" data-c="${i}" style="${LBL.pick===i?'border-color:var(--accent);background:var(--accent-soft)':''}">${LCPARTS[i][1]}</button>`).join('')}</div>
    <div class="stack" style="gap:8px;margin-top:14px">${LCPARTS.map((l,k)=>`<div class="row" style="gap:8px"><span class="pill acc mono">${k+1}</span><button class="slot ${LBL.slots[k]!=null?'fill':''}" data-s="${k}" style="flex:1">${LBL.slots[k]!=null?LCPARTS[LBL.slots[k]][1]:'?'}</button></div>`).join('')}</div>
    <div class="row" style="margin-top:12px"><button class="btn pri" id="lchk">확인</button><button class="btn sm" id="lreset">다시 하기</button></div><div id="lfb" style="margin-top:10px"></div></div></div>`;
-  $$('[data-c]',el).forEach(b=>b.onclick=()=>{LBL.pick=+b.dataset.c;paneLabelLc(el)});
-  $$('[data-s]',el).forEach(b=>b.onclick=()=>{const k=+b.dataset.s;if(LBL.slots[k]!=null)LBL.slots[k]=null;else if(LBL.pick!=null){LBL.slots[k]=LBL.pick;LBL.pick=null}paneLabelLc(el)});
+  if(LBL.doneFlag)$('#lfb').innerHTML='<div class="note ok">장치 이름 미션 완료 ✓ 다시 연습하려면 [다시 하기]를 누르세요.</div>';
+  $$('[data-c]',el).forEach(b=>b.onclick=()=>{if(LBL.doneFlag)return;LBL.pick=+b.dataset.c;paneLabelLc(el)});
+  $$('[data-s]',el).forEach(b=>b.onclick=()=>{if(LBL.doneFlag)return;const k=+b.dataset.s;if(LBL.slots[k]!=null)LBL.slots[k]=null;else if(LBL.pick!=null){LBL.slots[k]=LBL.pick;LBL.pick=null}paneLabelLc(el)});
   $('#lreset').onclick=()=>{LBL=null;paneLabelLc(el)};
-  $('#lchk').onclick=()=>{if(LBL.slots.includes(null)){toast('빈칸을 모두 채우세요');return}LBL.tries++;
+  $('#lchk').onclick=()=>{if(LBL.doneFlag){toast('이미 완료했어요 ✓');return}if(LBL.slots.includes(null)){toast('빈칸을 모두 채우세요');return}LBL.tries++;
     const wrong=LBL.slots.map((v,k)=>v===k?null:k).filter(v=>v!=null);
     if(!wrong.length){LBL.doneFlag=true;$('#lfb').innerHTML='<div class="note ok">모두 맞았어요! 컬럼이 고정상, 펌프가 보내는 액체가 이동상입니다.</div>';missionComplete('장치 이름',`시도 ${LBL.tries}회`)}
     else{wrong.forEach(k=>LBL.slots[k]=null);paneLabelLc(el);$('#lfb').innerHTML=`<div class="note bad">${wrong.map(k=>k+1).join(', ')}번이 틀렸어요. 비워 둔 칸을 다시 채워 보세요.</div>`}};
@@ -1370,13 +1372,14 @@ function paneLabelLc(el){
 const ORDER_LC=['이동상(HPLC grade 용매)을 준비한다','이동상을 탈기한다 (헬륨 퍼징 · 진공 여과)','펌프를 켜고 유속을 맞춘 뒤 압력·기준선이 안정될 때까지 기다린다','검출기 파장과 컬럼 온도를 설정한다','표준 용액을 주입해 머무름 시간과 피크 면적을 얻는다','검량선(면적 vs 농도)을 작성한다','시료를 희석하고 시린지 필터로 거른 뒤 주입한다','머무름 시간으로 성분을 확인하고, 면적으로 농도를 계산한다'];
 let ODL=null;
 function paneOrderLc(el){
-  if(!ODL)ODL={arr:shuffle(ORDER_LC),tries:0};
+  if(!ODL)ODL=missionDone().has('흐름 순서')?{arr:[...ORDER_LC],tries:0,solved:true}:{arr:shuffle(ORDER_LC),tries:0};
   el.innerHTML=`<div class="card"><h3>HPLC 분석 흐름 순서</h3><p class="small muted" style="margin-top:4px">항목을 마우스(손가락)로 끌어서 순서를 바꾼 뒤 확정하세요.</p><div class="orderlist" id="ol"></div>
   <div class="row" style="margin-top:12px"><button class="btn pri" id="ochk">순서 확정</button><button class="btn sm" id="oshuf">섞기</button></div><div id="ofb" style="margin-top:10px"></div></div>`;
   orderWidget($('#ol'),ODL.arr);
+  if(ODL.solved&&ODL.arr.every((t,i)=>t===ORDER_LC[i]))$('#ofb').innerHTML='<div class="note ok">흐름 순서 미션 완료 ✓ 다시 연습하려면 [섞기]를 누르세요.</div>';
   $('#oshuf').onclick=()=>{ODL=null;paneOrderLc(el)};
   $('#ochk').onclick=()=>{ODL.tries++;const right=ODL.arr.filter((t,i)=>t===ORDER_LC[i]).length;
-    if(right===ORDER_LC.length){$('#ofb').innerHTML='<div class="note ok">완벽해요! 장치를 안정시킨 뒤 표준 → 검량선 → 시료 순서가 핵심입니다.</div>';const t=ODL.tries;ODL=null;missionComplete('흐름 순서',`시도 ${t}회`)}
+    if(right===ORDER_LC.length){$('#ofb').innerHTML='<div class="note ok">완벽해요! 장치를 안정시킨 뒤 표준 → 검량선 → 시료 순서가 핵심입니다.</div>';ODL.solved=true;missionComplete('흐름 순서',`시도 ${ODL.tries}회`)}
     else $('#ofb').innerHTML=`<div class="note bad">${ORDER_LC.length}개 중 ${right}개가 제자리에 있어요. 다시 생각해 보세요.</div>`};
 }
 /* 고장 진단 */
@@ -1792,29 +1795,31 @@ const TOOLS_GC=[
  ['rec','기록부 (데이터 처리부)','검출기 신호를 크로마토그램으로 기록하고 피크의 머무름 시간·면적을 계산합니다.']
 ];
 const GCPARTS=[['cyl','운반 기체'],['fc','유량 제어계'],['port','시료 주입부'],['goven','분리관 (오븐 속)'],['fid','검출기'],['rec','기록부']];
-function gcSchematic(withNums){
+function gcSchematic(withNums,names){
   const B=[[14,30],[174,30],[334,30],[334,150],[174,150],[14,150]];
-  let s=`<svg viewBox="0 0 440 240" role="img" aria-label="GC 구조도"><defs><marker id="ahg" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8z" fill="var(--glass)"/></marker></defs>`;
+  let s=`<svg viewBox="0 0 440 252" role="img" aria-label="GC 구조도"><defs><marker id="ahg" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8z" fill="var(--glass)"/></marker></defs>`;
   for(let i=0;i<B.length-1;i++){const [x1,y1]=B[i],[x2,y2]=B[i+1];
     if(y1===y2){const a=x2>x1;s+=`<path d="M${a?x1+92:x1} ${y1+35} H${a?x2:x2+92}" stroke="var(--glass)" stroke-width="3" marker-end="url(#ahg)"/>`}
     else s+=`<path d="M${x1+46} ${y1+70} V${y2}" stroke="var(--glass)" stroke-width="3" marker-end="url(#ahg)"/>`}
   B.forEach(([x,y],i)=>{s+=`<rect x="${x}" y="${y}" width="92" height="70" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/><g transform="translate(${x+21},${y+2}) scale(.72)" style="color:var(--ink)">${ICON[GCPARTS[i][0]]}</g>`;
+    if(names)s+=`<text x="${x+46}" y="${y+90}" font-size="14" text-anchor="middle" fill="var(--accent)" font-weight="700" stroke="var(--surface2)" stroke-width="5" paint-order="stroke">${GCPARTS[i][1]}</text>`;
     if(withNums)s+=`<circle cx="${x+10}" cy="${y+10}" r="11" fill="var(--accent)"/><text x="${x+10}" y="${y+14.5}" font-size="13" text-anchor="middle" fill="#fff" font-family="IBM Plex Mono" font-weight="700">${i+1}</text>`});
   return s+'</svg>';
 }
 let LBG=null;
 function paneLabelGc(el){
-  if(!LBG||LBG.doneFlag)LBG={slots:Array(GCPARTS.length).fill(null),pick:null,tries:0,doneFlag:false};
+  if(!LBG)LBG=missionDone().has('장치 이름')?{slots:GCPARTS.map((l,i)=>i),pick:null,tries:0,doneFlag:true}:{slots:Array(GCPARTS.length).fill(null),pick:null,tries:0,doneFlag:false};
   const chips=shuffle(GCPARTS.map((l,i)=>i));
-  el.innerHTML=`<div class="bench wide"><div class="scene" style="align-items:center">${gcSchematic(true).replace('<svg ','<svg style="max-width:520px" ')}</div>
+  el.innerHTML=`<div class="bench wide"><div class="scene" style="align-items:center">${gcSchematic(true,LBG.doneFlag).replace('<svg ','<svg style="max-width:520px" ')}</div>
    <div><p class="small muted">이름 카드를 누른 뒤 번호 칸을 누르세요. 화살표가 운반 기체가 흐르는 방향이에요.</p>
    <div class="row" style="gap:8px;margin-top:10px">${chips.map(i=>`<button class="chip ${LBG.slots.includes(i)?'used':''}" data-c="${i}" style="${LBG.pick===i?'border-color:var(--accent);background:var(--accent-soft)':''}">${GCPARTS[i][1]}</button>`).join('')}</div>
    <div class="stack" style="gap:8px;margin-top:14px">${GCPARTS.map((l,k)=>`<div class="row" style="gap:8px"><span class="pill acc mono">${k+1}</span><button class="slot ${LBG.slots[k]!=null?'fill':''}" data-s="${k}" style="flex:1">${LBG.slots[k]!=null?GCPARTS[LBG.slots[k]][1]:'?'}</button></div>`).join('')}</div>
    <div class="row" style="margin-top:12px"><button class="btn pri" id="lchk">확인</button><button class="btn sm" id="lreset">다시 하기</button></div><div id="lfb" style="margin-top:10px"></div></div></div>`;
-  $$('[data-c]',el).forEach(b=>b.onclick=()=>{LBG.pick=+b.dataset.c;paneLabelGc(el)});
-  $$('[data-s]',el).forEach(b=>b.onclick=()=>{const k=+b.dataset.s;if(LBG.slots[k]!=null)LBG.slots[k]=null;else if(LBG.pick!=null){LBG.slots[k]=LBG.pick;LBG.pick=null}paneLabelGc(el)});
+  if(LBG.doneFlag)$('#lfb').innerHTML='<div class="note ok">장치 이름 미션 완료 ✓ 다시 연습하려면 [다시 하기]를 누르세요.</div>';
+  $$('[data-c]',el).forEach(b=>b.onclick=()=>{if(LBG.doneFlag)return;LBG.pick=+b.dataset.c;paneLabelGc(el)});
+  $$('[data-s]',el).forEach(b=>b.onclick=()=>{if(LBG.doneFlag)return;const k=+b.dataset.s;if(LBG.slots[k]!=null)LBG.slots[k]=null;else if(LBG.pick!=null){LBG.slots[k]=LBG.pick;LBG.pick=null}paneLabelGc(el)});
   $('#lreset').onclick=()=>{LBG=null;paneLabelGc(el)};
-  $('#lchk').onclick=()=>{if(LBG.slots.includes(null)){toast('빈칸을 모두 채우세요');return}LBG.tries++;
+  $('#lchk').onclick=()=>{if(LBG.doneFlag){toast('이미 완료했어요 ✓');return}if(LBG.slots.includes(null)){toast('빈칸을 모두 채우세요');return}LBG.tries++;
     const wrong=LBG.slots.map((v,k)=>v===k?null:k).filter(v=>v!=null);
     if(!wrong.length){LBG.doneFlag=true;$('#lfb').innerHTML='<div class="note ok">모두 맞았어요! 운반 기체가 이동상, 분리관 속 물질이 고정상입니다.</div>';missionComplete('장치 이름',`시도 ${LBG.tries}회`)}
     else{wrong.forEach(k=>LBG.slots[k]=null);paneLabelGc(el);$('#lfb').innerHTML=`<div class="note bad">${wrong.map(k=>k+1).join(', ')}번이 틀렸어요. 비워 둔 칸을 다시 채워 보세요.</div>`}};
@@ -1822,13 +1827,14 @@ function paneLabelGc(el){
 const ORDER_GC=['운반 기체 밸브를 열고 연결부의 누출을 점검한다','유량 제어계로 운반 기체 유량을 맞춘다','시료 주입부 · 분리관 오븐 · 검출기 온도를 설정하고 안정될 때까지 기다린다','검출기를 준비한다 (FID는 수소·공기를 열고 점화)','마이크로 시린지를 표준 용액으로 헹구고 기포를 뺀 뒤 주입한다','표준 용액의 머무름 시간과 면적으로 검량선을 만든다','시료를 희석해 같은 방법으로 주입한다','머무름 시간으로 성분을 확인하고 면적으로 농도를 계산한다'];
 let ODG=null;
 function paneOrderGc(el){
-  if(!ODG)ODG={arr:shuffle(ORDER_GC),tries:0};
+  if(!ODG)ODG=missionDone().has('흐름 순서')?{arr:[...ORDER_GC],tries:0,solved:true}:{arr:shuffle(ORDER_GC),tries:0};
   el.innerHTML=`<div class="card"><h3>GC 분석 흐름 순서</h3><p class="small muted" style="margin-top:4px">항목을 마우스(손가락)로 끌어서 순서를 바꾼 뒤 확정하세요.</p><div class="orderlist" id="ol"></div>
   <div class="row" style="margin-top:12px"><button class="btn pri" id="ochk">순서 확정</button><button class="btn sm" id="oshuf">섞기</button></div><div id="ofb" style="margin-top:10px"></div></div>`;
   orderWidget($('#ol'),ODG.arr);
+  if(ODG.solved&&ODG.arr.every((t,i)=>t===ORDER_GC[i]))$('#ofb').innerHTML='<div class="note ok">흐름 순서 미션 완료 ✓ 다시 연습하려면 [섞기]를 누르세요.</div>';
   $('#oshuf').onclick=()=>{ODG=null;paneOrderGc(el)};
   $('#ochk').onclick=()=>{ODG.tries++;const right=ODG.arr.filter((t,i)=>t===ORDER_GC[i]).length;
-    if(right===ORDER_GC.length){$('#ofb').innerHTML='<div class="note ok">완벽해요! 기체 누출 점검과 온도 안정화가 먼저입니다.</div>';const t=ODG.tries;ODG=null;missionComplete('흐름 순서',`시도 ${t}회`)}
+    if(right===ORDER_GC.length){$('#ofb').innerHTML='<div class="note ok">완벽해요! 기체 누출 점검과 온도 안정화가 먼저입니다.</div>';ODG.solved=true;missionComplete('흐름 순서',`시도 ${ODG.tries}회`)}
     else $('#ofb').innerHTML=`<div class="note bad">${ORDER_GC.length}개 중 ${right}개가 제자리에 있어요. 다시 생각해 보세요.</div>`};
 }
 const DETQ=[
